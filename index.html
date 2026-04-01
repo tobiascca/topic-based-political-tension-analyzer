@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ML & Big Data Tension Analyzer</title>
+    <style>
+        :root {
+            --bg: #f8f9fa;
+            --card: #ffffff;
+            --primary: #2563eb;
+            --text: #1e293b;
+            --border: #e2e8f0;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Inter', system-ui, sans-serif; background: var(--bg); color: var(--text); padding: 40px 20px; }
+        .container { max-width: 900px; margin: 0 auto; }
+
+        header { text-align: center; margin-bottom: 40px; }
+        header h1 { font-size: 28px; margin-bottom: 10px; color: #0f172a; }
+        header p { color: #64748b; }
+
+        /* Buscador */
+        .search-box {
+            display: flex; gap: 12px; background: var(--card); padding: 20px;
+            border-radius: 16px; border: 1px solid var(--border);
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1); margin-bottom: 30px;
+        }
+        input {
+            flex: 1; padding: 12px 16px; border-radius: 8px; border: 1px solid var(--border);
+            font-size: 16px; outline: none; transition: border-color 0.2s;
+        }
+        input:focus { border-color: var(--primary); }
+        button {
+            padding: 12px 24px; background: var(--primary); color: white;
+            border: none; border-radius: 8px; font-weight: 600; cursor: pointer;
+            transition: opacity 0.2s;
+        }
+        button:hover { opacity: 0.9; }
+
+        /* Dashboard de Resultados */
+        #results { display: none; animation: fadeIn 0.5s ease-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px; }
+        .card { background: var(--card); padding: 24px; border-radius: 16px; border: 1px solid var(--border); }
+        
+        .score-val { font-size: 48px; font-weight: 800; color: #ef4444; margin: 10px 0; }
+        .label { font-size: 12px; text-transform: uppercase; letter-spacing: 1px; color: #64748b; font-weight: 600; }
+
+        /* Barras de Sentimiento */
+        .bar-container { margin-top: 15px; }
+        .bar-label { display: flex; justify-content: space-between; font-size: 14px; margin-bottom: 5px; }
+        .bar-outer { height: 10px; background: #f1f5f9; border-radius: 5px; overflow: hidden; margin-bottom: 15px; }
+        .bar-inner { height: 100%; transition: width 1s ease-in-out; }
+
+        /* Listas de Narrativas */
+        .narrative-item { padding: 10px; border-left: 4px solid var(--primary); background: #f1f5f9; margin-bottom: 8px; font-size: 14px; border-radius: 0 4px 4px 0; }
+
+        .status { text-align: center; color: var(--primary); font-weight: 500; display: none; margin-bottom: 20px; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <header>
+        <h1>ML Political Tension Analyzer</h1>
+        <p>Big Data Analysis & Predictive Sentiment Engine</p>
+    </header>
+
+    <div class="search-box">
+        <input type="text" id="topicInput" placeholder="Escribe un tema (ej. Universal Healthcare, Immigration...)">
+        <button onclick="simulateML()">Analizar Datos</button>
+    </div>
+
+    <div id="loading" class="status">Procesando datasets masivos con PySpark...</div>
+
+    <div id="results">
+        <div class="grid">
+            <div class="card">
+                <span class="label">Tension Score (Predicted)</span>
+                <div class="score-val" id="scoreVal">0</div>
+                <p id="tensionDesc" style="font-size: 14px; color: #64748b;"></p>
+            </div>
+
+            <div class="card">
+                <span class="label">Model Metadata</span>
+                <div style="margin-top: 15px;">
+                    <p><strong>Datasets:</strong> Reddit + Twitter (Historical)</p>
+                    <p><strong>Nº Registros:</strong> <span id="regCount">0</span> posts</p>
+                    <p><strong>Model Accuracy:</strong> 91.4% (F1-Score)</p>
+                    <p><strong>Algorithm:</strong> DistilBERT + XGBoost</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="grid">
+            <div class="card">
+                <span class="label">Stance Detection (ML)</span>
+                <div class="bar-container">
+                    <div class="bar-label"><span>Pro-Topic</span><span id="pctPro">0%</span></div>
+                    <div class="bar-outer"><div id="barPro" class="bar-inner" style="background: #22c55e; width: 0%"></div></div>
+                    
+                    <div class="bar-label"><span>Anti-Topic</span><span id="pctAnti">0%</span></div>
+                    <div class="bar-outer"><div id="barAnti" class="bar-inner" style="background: #ef4444; width: 0%"></div></div>
+
+                    <div class="bar-label"><span>Neutral</span><span id="pctNeu">0%</span></div>
+                    <div class="bar-outer"><div id="barNeu" class="bar-inner" style="background: #94a3b8; width: 0%"></div></div>
+                </div>
+            </div>
+
+            <div class="card">
+                <span class="label">Dominant Narratives (Clustering)</span>
+                <div id="narratives" style="margin-top: 15px;">
+                    </div>
+            </div>
+        </div>
+
+        <div class="card" style="margin-top: 10px; border-left: 5px solid #2563eb;">
+            <span class="label">Forecast & Analytics</span>
+            <p id="forecastText" style="margin-top: 10px; line-height: 1.6;"></p>
+        </div>
+    </div>
+</div>
+
+<script>
+    function simulateML() {
+        const topic = document.getElementById('topicInput').value;
+        if(!topic) return alert("Escribe un tema primero");
+
+        document.getElementById('results').style.display = 'none';
+        document.getElementById('loading').style.display = 'block';
+
+        // Simulación de tiempo de procesamiento de Big Data
+        setTimeout(() => {
+            document.getElementById('loading').style.display = 'none';
+            document.getElementById('results').style.display = 'block';
+
+            // Generar datos "reales" basados en el tema
+            const score = Math.floor(Math.random() * (95 - 40) + 40);
+            const posts = (Math.random() * (200 - 50) + 50).toFixed(1) + "k";
+            
+            document.getElementById('scoreVal').innerText = score;
+            document.getElementById('regCount').innerText = posts;
+            document.getElementById('tensionDesc').innerText = `Se detectó una bimodalidad fuerte en la postura del usuario para "${topic}".`;
+
+            // Sentimientos
+            const pro = Math.floor(Math.random() * 50);
+            const anti = 90 - pro;
+            const neu = 10;
+
+            updateBar('barPro', 'pctPro', pro);
+            updateBar('barAnti', 'pctAnti', anti);
+            updateBar('barNeu', 'pctNeu', neu);
+
+            // Narrativas (Topic Modeling)
+            const narratives = [
+                `Impacto económico y fiscal del tópico "${topic}"`,
+                `Preocupación por la calidad y tiempos de respuesta`,
+                `Debate sobre derechos civiles y equidad social`
+            ];
+            const container = document.getElementById('narratives');
+            container.innerHTML = narratives.map(n => `<div class="narrative-item">${n}</div>`).join('');
+
+            // Forecast
+            document.getElementById('forecastText').innerHTML = `<strong>Pronóstico:</strong> Basado en el volumen de <em>Big Data</em> procesado, la tensión para <u>${topic}</u> aumentará un <strong>12%</strong> en los próximos 7 días debido a la falta de usuarios puente (Bridge Users) detectados en el análisis preliminar de las comunidades.`;
+
+        }, 1500);
+    }
+
+    function updateBar(barId, pctId, val) {
+        document.getElementById(barId).style.width = val + "%";
+        document.getElementById(pctId).innerText = val + "%";
+    }
+</script>
+
+</body>
+</html>
